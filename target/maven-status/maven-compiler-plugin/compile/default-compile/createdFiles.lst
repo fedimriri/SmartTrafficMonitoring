@@ -1,4 +1,7 @@
+com/traffic/mapreduce/weather/TrafficWeatherMapper.class
+com/traffic/mapreduce/hourly/TrafficHourMapper.class
 com/traffic/mapreduce/weather/TrafficWeatherReducer.class
-com/traffic/App.class
+com/traffic/mapreduce/weather/TrafficWeatherDriver.class
 com/traffic/mapreduce/hourly/TrafficHourDriver.class
 com/traffic/mapreduce/hourly/TrafficHourReducer.class
+com/traffic/App.class
