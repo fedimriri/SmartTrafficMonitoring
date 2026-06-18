@@ -1,4 +1,5 @@
 /home/fadi/Desktop/tek-up/BigData/projet/SmartTrafficMonitoring/src/main/java/com/traffic/mapreduce/weather/TrafficWeatherReducer.java
+/home/fadi/Desktop/tek-up/BigData/projet/SmartTrafficMonitoring/src/main/java/com/traffic/streaming/TrafficStreamingApp.java
 /home/fadi/Desktop/tek-up/BigData/projet/SmartTrafficMonitoring/src/main/java/com/traffic/mapreduce/hourly/TrafficHourDriver.java
 /home/fadi/Desktop/tek-up/BigData/projet/SmartTrafficMonitoring/src/main/java/com/traffic/mapreduce/hourly/TrafficHourReducer.java
 /home/fadi/Desktop/tek-up/BigData/projet/SmartTrafficMonitoring/src/main/java/com/traffic/mapreduce/weather/TrafficWeatherMapper.java
