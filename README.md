@@ -1,11 +1,24 @@
 # SmartTrafficMonitoring
 
+[![Java](https://img.shields.io/badge/Java-8-blue.svg)](https://www.oracle.com/java/)
+[![Hadoop](https://img.shields.io/badge/Hadoop-3.3.6-orange.svg)](https://hadoop.apache.org/)
+[![Spark Streaming](https://img.shields.io/badge/Spark%20Streaming-2.4.5-red.svg)](https://spark.apache.org/streaming/)
+[![Maven](https://img.shields.io/badge/Maven-Build-C71A36.svg)](https://maven.apache.org/)
+
 SmartTrafficMonitoring is a university big data project that analyzes road traffic data using two complementary approaches:
 
 - **Batch processing with Hadoop MapReduce** for historical traffic analysis
 - **Real-time processing with Apache Spark Streaming** for live traffic monitoring
 
 The project uses the Metro Interstate Traffic Volume dataset for batch analysis and a socket-based input stream for real-time traffic events.
+
+## Quick Start
+
+1. Build the project with `mvn clean package`.
+2. Run one of the Hadoop MapReduce drivers with an input path and output path.
+3. Start a socket source on port `9999`.
+4. Launch `TrafficStreamingApp` and send comma-separated traffic events into the socket.
+5. Review the console output for high-traffic alerts and weather summaries.
 
 ## Project Goals
 
@@ -113,6 +126,23 @@ You can generate test data with `nc` or another socket producer.
 - Hadoop libraries available at compile/run time for MapReduce jobs
 - Spark compatible runtime for the streaming application
 
+## Screenshots
+
+Add your project screenshots here to make the report more presentation-ready:
+
+- Batch analysis output
+- Weather summary output
+- High traffic alert output
+
+Suggested folder structure:
+
+```text
+docs/screenshots/
+├── hourly-output.png
+├── weather-output.png
+└── streaming-alerts.png
+```
+
 ## Build the Project
 
 ```bash
@@ -120,6 +150,50 @@ mvn clean package
 ```
 
 This generates a runnable JAR in `target/`.
+
+## Command-by-Command Execution
+
+### Step 1: Compile
+
+```bash
+mvn clean package
+```
+
+### Step 2: Run Hourly Batch Analysis
+
+```bash
+mvn exec:java \
+	-Dexec.mainClass="com.traffic.mapreduce.hourly.TrafficHourDriver" \
+	-Dexec.args="dataset/Metro_Interstate_Traffic_Volume.csv output/hourly"
+```
+
+### Step 3: Run Weather Batch Analysis
+
+```bash
+mvn exec:java \
+	-Dexec.mainClass="com.traffic.mapreduce.weather.TrafficWeatherDriver" \
+	-Dexec.args="dataset/Metro_Interstate_Traffic_Volume.csv output/weather"
+```
+
+### Step 4: Start a Socket Producer
+
+```bash
+nc -lk 9999
+```
+
+### Step 5: Run Spark Streaming
+
+```bash
+mvn exec:java -Dexec.mainClass="com.traffic.streaming.TrafficStreamingApp"
+```
+
+### Step 6: Send Live Events
+
+```text
+2026-06-18 08:00:00,Clouds,9100
+2026-06-18 08:05:00,Clear,4300
+2026-06-18 08:10:00,Rain,12050
+```
 
 ## Run the Hadoop MapReduce Jobs
 
@@ -217,6 +291,19 @@ This project currently includes:
 - There is no persistence layer for processed streaming results.
 - There is no dashboard or web UI.
 
+## Future Improvements
+
+- Add Kafka ingestion for the streaming pipeline.
+- Persist MapReduce outputs into HDFS or a warehouse layer.
+- Add windowed and stateful Spark Streaming analytics.
+- Create a dashboard for visualizing traffic trends and alerts.
+- Support richer traffic event schemas and sensor simulation.
+
 ## Author
 
-University project for smart traffic monitoring using Hadoop MapReduce and Apache Spark Streaming.
+Fadi Mriri | Cloud & DevOps Engineer
+
+- Email: fmriri2@gmail.com
+- Location: Tunis, Tunis
+- Portfolio: fadimriri-portfolio.vercel.app
+
