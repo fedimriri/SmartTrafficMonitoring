@@ -5,6 +5,7 @@
 	<img src="https://img.shields.io/badge/Hadoop-3.3.6-orange.svg" alt="Hadoop 3.3.6" />
 	<img src="https://img.shields.io/badge/Spark%20Streaming-2.4.5-red.svg" alt="Spark Streaming 2.4.5" />
 	<img src="https://img.shields.io/badge/Maven-Build-C71A36.svg" alt="Maven" />
+	<img src="https://img.shields.io/badge/YARN-Cluster-yellow.svg" alt="YARN" />
 </p>
 
 <p align="center">
@@ -19,28 +20,14 @@
 
 ## Overview
 
-SmartTrafficMonitoring is a university big data project that analyzes road traffic data using two complementary approaches:
+SmartTrafficMonitoring is a Big Data project that analyzes road traffic data using two complementary approaches:
 
-- **Batch processing with Hadoop MapReduce** for historical traffic analysis
-- **Real-time processing with Apache Spark Streaming** for live traffic monitoring
+- **Batch processing with Hadoop MapReduce** — historical traffic analysis (average per hour, average per weather, peak/lowest identification)
+- **Real-time processing with Apache Spark Streaming** — live traffic monitoring with congestion detection, windowed weather aggregation, and running statistics
 
-The project uses the Metro Interstate Traffic Volume dataset for batch analysis and a socket-based input stream for real-time traffic events.
+The project runs on a Docker-based Hadoop + Spark cluster using the Metro Interstate Traffic Volume dataset (48,204 records).
 
-## Quick Start
-
-1. Build the project with `mvn clean package`.
-2. Run one of the Hadoop MapReduce drivers with an input path and output path.
-3. Start a socket source on port `9999`.
-4. Launch `TrafficStreamingApp` and send comma-separated traffic events into the socket.
-5. Review the console output for high-traffic alerts and weather summaries.
-
-## Project Goals
-
-- Analyze historical traffic volume stored in HDFS or local filesystem input.
-- Aggregate traffic by **hour**.
-- Aggregate traffic by **weather condition**.
-- Detect high traffic events in a streaming pipeline.
-- Provide live traffic summaries from incoming data.
+---
 
 ## Technology Stack
 
@@ -49,32 +36,52 @@ The project uses the Metro Interstate Traffic Volume dataset for batch analysis 
 | Language | Java 8 |
 | Batch Processing | Apache Hadoop MapReduce 3.3.6 |
 | Streaming | Apache Spark Streaming 2.4.5 |
+| Cluster Manager | YARN |
+| Distributed Storage | HDFS |
 | Build Tool | Maven |
+| Deployment | Docker |
+
+---
 
 ## Repository Structure
 
 ```text
-src/main/java/com/traffic/
-├── App.java
-├── mapreduce/
-│   ├── hourly/
-│   │   ├── TrafficHourDriver.java
-│   │   ├── TrafficHourMapper.java
-│   │   └── TrafficHourReducer.java
-│   └── weather/
-│       ├── TrafficWeatherDriver.java
-│       ├── TrafficWeatherMapper.java
-│       └── TrafficWeatherReducer.java
-└── streaming/
-		└── TrafficStreamingApp.java
-
-dataset/
-└── Metro_Interstate_Traffic_Volume.csv
+SmartTrafficMonitoring/
+├── dataset/
+│   └── Metro_Interstate_Traffic_Volume.csv
+├── scripts/
+│   ├── connect-networks.sh      # Connect Spark containers to Hadoop network
+│   ├── start-spark.sh           # Start Spark Master and Workers
+│   └── run-mapreduce.sh         # Build + run both MapReduce jobs on YARN
+├── src/main/java/com/traffic/
+│   ├── mapreduce/
+│   │   ├── hourly/
+│   │   │   ├── TrafficHourDriver.java
+│   │   │   ├── TrafficHourMapper.java
+│   │   │   └── TrafficHourReducer.java
+│   │   └── weather/
+│   │       ├── TrafficWeatherDriver.java
+│   │       ├── TrafficWeatherMapper.java
+│   │       └── TrafficWeatherReducer.java
+│   ├── streaming/
+│   │   ├── TrafficStreamingApp.java   # Spark Streaming consumer
+│   │   ├── TrafficDataProducer.java   # Socket-based traffic simulator
+│   │   └── TrafficRecord.java         # Traffic POJO
+│   └── utils/
+│       └── CsvParser.java
+├── pom.xml
+└── README.md
 ```
+
+---
 
 ## Dataset
 
-The batch jobs use `dataset/Metro_Interstate_Traffic_Volume.csv`.
+**Metro Interstate Traffic Volume Dataset**
+
+- File: `dataset/Metro_Interstate_Traffic_Volume.csv`
+- Records: 48,204 hourly observations on Interstate 94
+- HDFS path: `/traffic-data/historical/Metro_Interstate_Traffic_Volume.csv`
 
 ### CSV Schema
 
@@ -82,242 +89,326 @@ The batch jobs use `dataset/Metro_Interstate_Traffic_Volume.csv`.
 holiday,temp,rain_1h,snow_1h,clouds_all,weather_main,weather_description,date_time,traffic_volume
 ```
 
-### Fields Used by the MapReduce Jobs
+Fields used by MapReduce:
+- `date_time` (index 7) — extracts the hour (HH)
+- `weather_main` (index 5) — weather condition category
+- `traffic_volume` (index 8) — vehicle count
 
-- **Hourly analysis** uses:
-	- `date_time` at column index 7
-	- `traffic_volume` at column index 8
-- **Weather analysis** uses:
-	- `weather_main` at column index 5
-	- `traffic_volume` at column index 8
+---
 
-## Features Implemented
-
-### Batch Analysis with Hadoop MapReduce
-
-- `TrafficHourMapper` extracts the hour from `date_time`.
-- `TrafficHourReducer` sums traffic volume per hour.
-- `TrafficHourDriver` runs the job and writes output to the path provided at runtime.
-- `TrafficWeatherMapper` extracts the weather category from `weather_main`.
-- `TrafficWeatherReducer` sums traffic volume per weather condition.
-- `TrafficWeatherDriver` runs the job and writes output to the path provided at runtime.
-
-### Real-Time Analysis with Spark Streaming
-
-- `TrafficStreamingApp` creates a `JavaStreamingContext`.
-- Reads incoming traffic lines from a socket at `localhost:9999`.
-- Parses streaming events into a simple `TrafficEvent` object.
-- Detects high traffic when `trafficVolume > 8000`.
-- Produces a live summary grouped by weather condition.
-
-## Real-Time Input Format
-
-The streaming app expects each line to contain **three comma-separated values**:
+## HDFS Directory Structure
 
 ```text
-timestamp,weather,trafficVolume
+/traffic-data/
+├── historical/
+│   └── Metro_Interstate_Traffic_Volume.csv
+├── streaming/
+│   └── incoming-data/
+└── output/
+    ├── hourly/          (created by Job 1)
+    └── weather/         (created by Job 2)
 ```
 
-### Example
+---
 
-```text
-2026-06-18 08:00:00,Clouds,9100
-2026-06-18 08:05:00,Clear,4300
-2026-06-18 08:10:00,Rain,12050
+## Step-by-Step Execution
+
+### 0 — Prerequisites: Docker cluster running
+
+```bash
+docker ps
 ```
 
-You can generate test data with `nc` or another socket producer.
+Expected containers: `hadoop-master`, `hadoop-worker1`, `hadoop-worker2`,
+`spark-master`, `spark-slave1`, `spark-slave2`
 
-## Build Requirements
+---
 
-- JDK 8
-- Maven
-- Hadoop libraries available at compile/run time for MapReduce jobs
-- Spark compatible runtime for the streaming application
+### 1 — Connect Docker Networks (once, first time only)
 
-## Screenshot Gallery
+Spark containers must reach Hadoop containers over the same Docker network:
 
-Add your screenshots in `docs/screenshots/` and the README will display them automatically.
-
-| Batch by Hour | Batch by Weather | Streaming Alerts |
-| --- | --- | --- |
-| ![Hourly output](docs/screenshots/hourly-output.png) | ![Weather output](docs/screenshots/weather-output.png) | ![Streaming alerts](docs/screenshots/streaming-alerts.png) |
-
-If the images are not available yet, create these files later:
-
-```text
-docs/screenshots/hourly-output.png
-docs/screenshots/weather-output.png
-docs/screenshots/streaming-alerts.png
+```bash
+bash scripts/connect-networks.sh
 ```
 
-## Build the Project
+Or manually:
+
+```bash
+docker network connect hadoop spark-master
+docker network connect hadoop spark-slave1
+docker network connect hadoop spark-slave2
+```
+
+Verify:
+
+```bash
+docker exec spark-master getent hosts hadoop-master
+docker exec spark-slave1 getent hosts hadoop-master
+```
+
+---
+
+### 2 — Verify Hadoop Cluster
+
+```bash
+# Check all daemons
+docker exec hadoop-master jps
+# Expected: NameNode, SecondaryNameNode, ResourceManager
+
+docker exec hadoop-worker1 jps
+# Expected: DataNode, NodeManager
+
+docker exec hadoop-worker2 jps
+# Expected: DataNode, NodeManager
+
+# YARN nodes
+docker exec hadoop-master yarn node -list
+
+# HDFS report
+docker exec hadoop-master hdfs dfsadmin -report
+```
+
+---
+
+### 3 — Verify HDFS Dataset
+
+```bash
+# List HDFS structure
+docker exec hadoop-master hdfs dfs -ls -R /traffic-data
+
+# Confirm dataset is present
+docker exec hadoop-master hdfs dfs -ls /traffic-data/historical
+```
+
+If the dataset is missing, upload it:
+
+```bash
+docker exec hadoop-master hdfs dfs -mkdir -p /traffic-data/historical
+docker cp dataset/Metro_Interstate_Traffic_Volume.csv hadoop-master:/tmp/
+docker exec hadoop-master hdfs dfs -put /tmp/Metro_Interstate_Traffic_Volume.csv /traffic-data/historical/
+```
+
+---
+
+### 4 — Start Spark Cluster
+
+Spark daemons do not auto-start. Run after every container restart:
+
+```bash
+bash scripts/start-spark.sh
+```
+
+Or manually:
+
+```bash
+docker exec spark-master /opt/spark/sbin/start-master.sh
+docker exec spark-slave1  /opt/spark/sbin/start-slave.sh spark://spark-master:7077
+docker exec spark-slave2  /opt/spark/sbin/start-slave.sh spark://spark-master:7077
+```
+
+Verify:
+
+```bash
+docker exec spark-master jps   # Expected: Master
+docker exec spark-slave1 jps   # Expected: Worker
+docker exec spark-slave2 jps   # Expected: Worker
+```
+
+Spark Master UI: http://localhost:8080
+
+---
+
+### 5 — Build the Project
 
 ```bash
 mvn clean package
 ```
 
-This generates a runnable JAR in `target/`.
+This produces `target/SmartTrafficMonitoring-1.0-SNAPSHOT.jar`.
 
-## Command-by-Command Execution
+---
 
-### 1) Compile
+### 6 — Run MapReduce Job 1: Traffic by Hour (via YARN)
 
 ```bash
-mvn clean package
+# Copy JAR into the Hadoop container
+docker cp target/SmartTrafficMonitoring-1.0-SNAPSHOT.jar hadoop-master:/tmp/SmartTrafficMonitoring.jar
+
+# Remove old output if it exists
+docker exec hadoop-master hdfs dfs -rm -r /traffic-data/output/hourly 2>/dev/null || true
+
+# Submit to YARN
+docker exec hadoop-master hadoop jar /tmp/SmartTrafficMonitoring.jar \
+    com.traffic.mapreduce.hourly.TrafficHourDriver \
+    /traffic-data/historical/Metro_Interstate_Traffic_Volume.csv \
+    /traffic-data/output/hourly
 ```
 
-### 2) Run Hourly Batch Analysis
+Read the output:
+
+```bash
+docker exec hadoop-master hdfs dfs -cat /traffic-data/output/hourly/part-r-00000
+```
+
+Expected output:
+
+```text
+00      834
+01      516
+...
+16      5663
+...
+23      1469
+PEAK_HOUR       16  (avg = 5663 vehicles/hour)
+LOWEST_HOUR     03  (avg = 371 vehicles/hour)
+```
+
+---
+
+### 7 — Run MapReduce Job 2: Traffic by Weather (via YARN)
+
+```bash
+# Remove old output if it exists
+docker exec hadoop-master hdfs dfs -rm -r /traffic-data/output/weather 2>/dev/null || true
+
+# Submit to YARN
+docker exec hadoop-master hadoop jar /tmp/SmartTrafficMonitoring.jar \
+    com.traffic.mapreduce.weather.TrafficWeatherDriver \
+    /traffic-data/historical/Metro_Interstate_Traffic_Volume.csv \
+    /traffic-data/output/weather
+```
+
+Read the output:
+
+```bash
+docker exec hadoop-master hdfs dfs -cat /traffic-data/output/weather/part-r-00000
+```
+
+Expected output:
+
+```text
+Clear           3055
+Clouds          3618
+Drizzle         3290
+Fog             2703
+Haze            3502
+Mist            2932
+Rain            3317
+Smoke           3237
+Snow            3016
+Squall          2061
+Thunderstorm    3001
+HIGHEST_WEATHER Clouds  (avg = 3618 vehicles/hour)
+LOWEST_WEATHER  Squall  (avg = 2061 vehicles/hour)
+```
+
+---
+
+### 8 — Check YARN Job History
+
+```bash
+docker exec hadoop-master yarn application -list -appStates ALL
+```
+
+Both jobs should appear as `FINISHED / SUCCEEDED`.
+
+---
+
+### 9 — Start the Streaming Producer (Terminal 1)
+
+The producer reads the dataset row by row and streams records to port 9999.  
+Start this **before** the Spark Streaming app.
 
 ```bash
 mvn exec:java \
-	-Dexec.mainClass="com.traffic.mapreduce.hourly.TrafficHourDriver" \
-	-Dexec.args="dataset/Metro_Interstate_Traffic_Volume.csv output/hourly"
+  -Dexec.mainClass="com.traffic.streaming.TrafficDataProducer" \
+  -Dexec.args="dataset/Metro_Interstate_Traffic_Volume.csv 9999 500"
 ```
 
-### 3) Run Weather Batch Analysis
+Arguments:
+- `dataset/Metro_Interstate_Traffic_Volume.csv` — input dataset
+- `9999` — TCP port (must match Spark app)
+- `500` — milliseconds between records (500 ms = 2 records/second)
+
+The producer will print:
+```text
+[PRODUCER] Waiting for Spark Streaming to connect...
+```
+
+---
+
+### 10 — Start the Spark Streaming App (Terminal 2)
 
 ```bash
 mvn exec:java \
-	-Dexec.mainClass="com.traffic.mapreduce.weather.TrafficWeatherDriver" \
-	-Dexec.args="dataset/Metro_Interstate_Traffic_Volume.csv output/weather"
+  -Dexec.mainClass="com.traffic.streaming.TrafficStreamingApp"
 ```
 
-### 4) Start a Socket Producer
+The app connects to port 9999 and processes events in 5-second micro-batches.
+
+Expected output per batch:
+
+```text
+╔══════════════════════════════════════╗
+║       ⚠  CONGESTION ALERT  ⚠         ║
+╠══════════════════════════════════════╣
+║  Time    : 2012-10-02 09:00:00       ║
+║  Weather : Clouds                    ║
+║  Volume  : 7120                      ║
+╚══════════════════════════════════════╝
+
+[STATS] Running Average Traffic : 4823 vehicles/hour  (total processed: 540 records)
+
+[WEATHER] Traffic by condition (last 30 s):
+  Clouds               -> 43200 vehicles
+  Clear                -> 18400 vehicles
+  Rain                 -> 9900 vehicles
+```
+
+---
+
+### 11 — Web UIs
+
+| UI | URL |
+| --- | --- |
+| HDFS NameNode | http://localhost:9870 |
+| YARN ResourceManager | http://localhost:8088 |
+| Spark Master | http://localhost:8080 |
+
+---
+
+## Streaming Input Format
+
+When using `nc` instead of the producer (for manual testing):
 
 ```bash
+# Terminal 1: start a netcat server
 nc -lk 9999
-```
 
-### 5) Run Spark Streaming
-
-```bash
+# Terminal 2: start the streaming app
 mvn exec:java -Dexec.mainClass="com.traffic.streaming.TrafficStreamingApp"
+
+# Then type records into Terminal 1:
+2026-06-18 08:00:00,Clouds,7200
+2026-06-18 08:05:00,Clear,3500
+2026-06-18 08:10:00,Rain,6500
 ```
 
-### 6) Send Live Events
+---
 
-```text
-2026-06-18 08:00:00,Clouds,9100
-2026-06-18 08:05:00,Clear,4300
-2026-06-18 08:10:00,Rain,12050
+## Congestion Detection Rule
+
+Per project specification:
+
+```java
+traffic_volume > 6000  →  CONGESTION ALERT
 ```
 
-## Run the Hadoop MapReduce Jobs
-
-### Traffic Volume by Hour
-
-```bash
-mvn exec:java \
-	-Dexec.mainClass="com.traffic.mapreduce.hourly.TrafficHourDriver" \
-	-Dexec.args="<input> <output>"
-```
-
-Example:
-
-```bash
-mvn exec:java \
-	-Dexec.mainClass="com.traffic.mapreduce.hourly.TrafficHourDriver" \
-	-Dexec.args="dataset/Metro_Interstate_Traffic_Volume.csv output/hourly"
-```
-
-### 2. Traffic Volume by Weather
-
-```bash
-mvn exec:java \
-	-Dexec.mainClass="com.traffic.mapreduce.weather.TrafficWeatherDriver" \
-	-Dexec.args="<input> <output>"
-```
-
-Example:
-
-```bash
-mvn exec:java \
-	-Dexec.mainClass="com.traffic.mapreduce.weather.TrafficWeatherDriver" \
-	-Dexec.args="dataset/Metro_Interstate_Traffic_Volume.csv output/weather"
-```
-
-### MapReduce Output
-
-The reducers emit key-value pairs such as:
-
-```text
-08    125340
-09    143220
-Clear 982340
-Clouds 1142200
-```
-
-## Run the Spark Streaming App
-
-### Start a socket source
-
-Use `nc` to simulate a stream:
-
-```bash
-nc -lk 9999
-```
-
-### Launch the streaming application
-
-```bash
-mvn exec:java -Dexec.mainClass="com.traffic.streaming.TrafficStreamingApp"
-```
-
-Then type streaming records into the socket terminal.
-
-## Project Architecture
-
-```text
-Historical traffic CSV
-				↓
-MapReduce batch processing
-				↓
-Hourly and weather traffic summaries
-
-Live traffic events from socket
-				↓
-Spark Streaming processing
-				↓
-High traffic alerts and weather-based aggregation
-```
-
-## Current Scope
-
-This project currently includes:
-
-- Historical traffic aggregation by hour
-- Historical traffic aggregation by weather condition
-- Streaming ingestion from a socket
-- High traffic alert detection
-- Live weather-based traffic aggregation
-
-## Limitations
-
-- The streaming app uses a socket source, not Kafka.
-- The streaming input format is simplified and does not reuse the full CSV schema.
-- There is no persistence layer for processed streaming results.
-- There is no dashboard or web UI.
-
-## Future Improvements
-
-- Add Kafka ingestion for the streaming pipeline.
-- Persist MapReduce outputs into HDFS or a warehouse layer.
-- Add windowed and stateful Spark Streaming analytics.
-- Create a dashboard for visualizing traffic trends and alerts.
-- Support richer traffic event schemas and sensor simulation.
+---
 
 ## Author
 
 **Fadi Mriri** | Cloud & DevOps Engineer
 
-- Email: fmriri2@gmail.com
-- Location: Tunis, Tunis
-- Portfolio: fadimriri-portfolio.vercel.app
-
----
-
-University project for smart traffic monitoring using Hadoop MapReduce and Apache Spark Streaming.
-
-
-- Email: fmriri2@gmail.com
+University Big Data Project — Smart Traffic Monitoring using Hadoop MapReduce and Apache Spark Streaming.

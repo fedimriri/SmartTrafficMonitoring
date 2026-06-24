@@ -9,8 +9,7 @@ import org.apache.hadoop.mapreduce.Mapper;
 public class TrafficWeatherMapper
         extends Mapper<Object, Text, Text, IntWritable> {
 
-    private final static IntWritable trafficValue =
-            new IntWritable();
+    private IntWritable trafficValue = new IntWritable();
 
     private Text weather = new Text();
 

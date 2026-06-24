@@ -9,7 +9,7 @@ import org.apache.hadoop.mapreduce.Mapper;
 public class TrafficHourMapper
         extends Mapper<Object, Text, Text, IntWritable> {
 
-    private final static IntWritable trafficValue = new IntWritable();
+    private IntWritable trafficValue = new IntWritable();
     private Text hour = new Text();
 
     @Override

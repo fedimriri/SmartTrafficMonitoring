@@ -37,8 +37,16 @@ public class TrafficWeatherDriver {
         job.setReducerClass(
                 TrafficWeatherReducer.class);
 
+        // Mapper emits (Text weather, IntWritable volume)
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(IntWritable.class);
+
+        // Reducer emits (Text label, Text average/annotation)
+        // Note: a Combiner is not used here because the Reducer computes
+        // averages. Combining partial sums without counts would produce
+        // incorrect averages in the final Reducer.
         job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(IntWritable.class);
+        job.setOutputValueClass(Text.class);
 
         FileInputFormat.addInputPath(
                 job,
