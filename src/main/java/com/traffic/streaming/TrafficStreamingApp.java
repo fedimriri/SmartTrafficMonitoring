@@ -29,21 +29,30 @@ import java.util.List;
  *   2. Running traffic average    (stateful — updateStateByKey)
  *   3. Weather-based aggregation  (windowed — reduceByKeyAndWindow 30s/5s)
  *
- * Usage (local mode — run from inside spark-master container):
- *   spark-submit --master local[2] \
- *     --class com.traffic.streaming.TrafficStreamingApp \
- *     /tmp/SmartTrafficMonitoring.jar
+ * Designed for Spark standalone cluster mode. The Spark master URL is NOT set
+ * in code — it is supplied exclusively via spark-submit --master so that the
+ * cluster master is never overridden by a hardcoded local[*] fallback.
  *
- * Usage (cluster mode):
- *   spark-submit --master spark://spark-master:7077 \
+ * Launch command (run from inside spark-master container):
+ *
+ *   spark-submit \
  *     --class com.traffic.streaming.TrafficStreamingApp \
+ *     --master spark://spark-master:7077 \
+ *     --deploy-mode client \
+ *     --conf spark.cores.max=2 \
  *     /tmp/SmartTrafficMonitoring.jar \
- *     spark://spark-master:7077  hadoop-master  /tmp/spark-checkpoint-traffic
+ *     spark-master /tmp/spark-checkpoint-traffic 9999
  *
  * Arguments (all optional):
- *   args[0]  Spark master URL       (default: local[2])
- *   args[1]  Socket host            (default: localhost)
- *   args[2]  Checkpoint directory   (default: /tmp/spark-checkpoint-traffic)
+ *   args[0]  Socket host            (default: spark-master)
+ *   args[1]  Checkpoint directory   (default: /tmp/spark-checkpoint-traffic)
+ *   args[2]  Socket port            (default: 9999)
+ *
+ * Why socketHost defaults to "spark-master" and not "localhost":
+ *   In cluster mode the socket receiver runs as a task on an executor located
+ *   on spark-slave1 or spark-slave2. Those containers cannot reach "localhost"
+ *   — they must connect to the producer via the shared Docker network using the
+ *   hostname "spark-master", where TrafficDataProducer is listening on port 9999.
  *
  * NOTE: All stream transformations use explicit anonymous inner classes instead of
  * Java lambda expressions. This is required for compatibility with Spark 2.4.5 when
@@ -60,23 +69,23 @@ public class TrafficStreamingApp {
 
     public static void main(String[] args) throws Exception {
 
-        final String master        = args.length > 0 ? args[0] : "local[2]";
-        final String socketHost    = args.length > 1 ? args[1] : "localhost";
-        final String checkpointDir = args.length > 2 ? args[2] : "/tmp/spark-checkpoint-traffic";
-        final int    socketPort    = args.length > 3 ? Integer.parseInt(args[3]) : 9999;
+        // Master is intentionally NOT read from args — it comes from spark-submit
+        // --master. Setting it here would override the cluster URL with "local[2]"
+        // when no args are provided, silently bypassing the cluster.
+        final String socketHost    = args.length > 0 ? args[0] : "spark-master";
+        final String checkpointDir = args.length > 1 ? args[1] : "/tmp/spark-checkpoint-traffic";
+        final int    socketPort    = args.length > 2 ? Integer.parseInt(args[2]) : 9999;
 
         System.out.println("========================================");
         System.out.println("  Smart Traffic Monitoring - Streaming");
         System.out.println("========================================");
-        System.out.printf("Master       : %s%n", master);
         System.out.printf("Socket       : %s:%d%n", socketHost, socketPort);
         System.out.printf("Checkpoint   : %s%n", checkpointDir);
         System.out.printf("Alert threshold: traffic_volume > %d%n", CONGESTION_THRESHOLD);
         System.out.println("========================================");
 
         SparkConf conf = new SparkConf()
-                .setAppName("SmartTrafficMonitoring")
-                .setMaster(master);
+                .setAppName("SmartTrafficMonitoring");
 
         // 5-second micro-batch interval
         JavaStreamingContext ssc = new JavaStreamingContext(conf, Durations.seconds(5));
