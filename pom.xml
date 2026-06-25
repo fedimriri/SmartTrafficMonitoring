@@ -15,6 +15,29 @@
         <hadoop.version>3.3.6</hadoop.version>
     </properties>
 
+    <!-- Force Jackson to the version Spark 2.4.5 requires.
+         Hadoop 3.3.6 pulls in 2.12.x which causes SparkContext to fail
+         with "Incompatible Jackson version" at startup. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>2.6.7.1</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>2.6.7</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>2.6.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
 
         <dependency>

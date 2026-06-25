@@ -63,12 +63,13 @@ public class TrafficStreamingApp {
         final String master        = args.length > 0 ? args[0] : "local[2]";
         final String socketHost    = args.length > 1 ? args[1] : "localhost";
         final String checkpointDir = args.length > 2 ? args[2] : "/tmp/spark-checkpoint-traffic";
+        final int    socketPort    = args.length > 3 ? Integer.parseInt(args[3]) : 9999;
 
         System.out.println("========================================");
         System.out.println("  Smart Traffic Monitoring - Streaming");
         System.out.println("========================================");
         System.out.printf("Master       : %s%n", master);
-        System.out.printf("Socket       : %s:9999%n", socketHost);
+        System.out.printf("Socket       : %s:%d%n", socketHost, socketPort);
         System.out.printf("Checkpoint   : %s%n", checkpointDir);
         System.out.printf("Alert threshold: traffic_volume > %d%n", CONGESTION_THRESHOLD);
         System.out.println("========================================");
@@ -85,7 +86,7 @@ public class TrafficStreamingApp {
 
         // ── Input stream ──────────────────────────────────────────────────
         JavaReceiverInputDStream<String> rawStream =
-                ssc.socketTextStream(socketHost, 9999);
+                ssc.socketTextStream(socketHost, socketPort);
 
         // ── Non-empty line filter ─────────────────────────────────────────
         JavaDStream<String> validLines = rawStream.filter(
