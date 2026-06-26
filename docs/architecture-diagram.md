@@ -1,5 +1,17 @@
 # SmartTrafficMonitoring — Architecture Diagram
 
+## Architecture Type: Independent Dual-Layer (Not Lambda)
+
+The two pipelines are **independent**. Spark does NOT read Hadoop's output.
+Each layer answers a different question about the same underlying dataset.
+
+| | Batch (Hadoop) | Streaming (Spark) |
+|---|---|---|
+| Data source | HDFS `/traffic-data/historical/` | TCP socket `:9999` (CSV replay) |
+| Time scope | All 5 years (2012–2018) | Last 30 s / since job start |
+| Question | Historical avg per hour / weather | Live congestion + running avg |
+| Output | HDFS files | stdout (real-time) |
+
 ## System Architecture
 
 ```mermaid
@@ -11,7 +23,6 @@ flowchart TD
         HI[/traffic-data/historical/\nMetro_Interstate_Traffic_Volume.csv]
         HO_H[/traffic-data/output/hourly/\npart-r-00000]
         HO_W[/traffic-data/output/weather/\npart-r-00000]
-        HS[/traffic-data/streaming/\nincoming-data/]
     end
 
     subgraph HADOOP ["Hadoop Cluster — YARN + MapReduce"]
@@ -53,7 +64,7 @@ flowchart TD
     HO_H --> R_H
     HO_W --> R_W
 
-    DS -->|"local CSV read"| PROD
+    DS -->|"local CSV read\n(independent of HDFS)"| PROD
     PROD -->|TCP :9999| REC
     REC --> ALT
     REC --> AVG
@@ -62,6 +73,8 @@ flowchart TD
     AVG --> R_A
     WIN --> R_A
 ```
+
+> **Architecture Note**: The dashed path from `DS` to `PROD` uses the local filesystem directly — not HDFS. The Spark layer is completely independent of the Hadoop layer.
 
 ---
 
