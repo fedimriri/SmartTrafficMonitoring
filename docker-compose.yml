@@ -13,10 +13,6 @@ version: '3.8'
 #
 # After 'up', run the MapReduce jobs and streaming pipeline as documented in README.md.
 
-networks:
-  hadoop:
-    driver: bridge
-
 services:
 
   # ─── Hadoop Master ─────────────────────────────────────────────────────────
@@ -27,7 +23,7 @@ services:
     stdin_open: true
     tty: true
     networks:
-      - hadoop
+      - SmartTrafficMonitoring
     ports:
       - "9870:9870"    # HDFS NameNode UI
       - "8088:8088"    # YARN ResourceManager UI
@@ -63,7 +59,7 @@ services:
     stdin_open: true
     tty: true
     networks:
-      - hadoop
+      - SmartTrafficMonitoring
     ports:
       - "8841:8842"    # DataNode HTTP UI
     environment:
@@ -82,7 +78,8 @@ services:
     stdin_open: true
     tty: true
     networks:
-      - hadoop
+      - SmartTrafficMonitoring
+
     ports:
       - "8842:8842"    # DataNode HTTP UI
     environment:
@@ -101,7 +98,7 @@ services:
     stdin_open: true
     tty: true
     networks:
-      - hadoop          # Shared with Hadoop so Spark can access HDFS/YARN
+      - SmartTrafficMonitoring          # Shared with Hadoop so Spark can access HDFS/YARN
     ports:
       - "8080:8080"     # Spark Master Web UI
       - "7077:7077"     # Spark cluster submit port (spark://spark-master:7077)
@@ -119,7 +116,7 @@ services:
     stdin_open: true
     tty: true
     networks:
-      - hadoop
+      - SmartTrafficMonitoring
     command: sh -c "tail -f /dev/null"
     depends_on:
       - spark-master
@@ -132,7 +129,13 @@ services:
     stdin_open: true
     tty: true
     networks:
-      - hadoop
+      - SmartTrafficMonitoring
     command: sh -c "tail -f /dev/null"
     depends_on:
       - spark-master
+
+networks:
+    SmartTrafficMonitoring:
+      external: true
+      driver: bridge
+
