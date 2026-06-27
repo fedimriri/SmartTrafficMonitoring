@@ -183,14 +183,14 @@ Wait for output like:
 ```
 Then wait ~10 seconds for the streaming context to initialize.
 
-**Terminal 2** — Start the manual input server:
+**Terminal 2** — Start the interactive producer:
 ```bash
 bash scripts/start-manual-demo.sh
 ```
 
-Wait until Terminal 2 shows:
+This starts `TrafficDataProducer --interactive` inside `spark-master` via `docker exec -it`. No `nc` or netcat is needed. Wait until Terminal 2 shows:
 ```
-Waiting for Spark Streaming to connect on spark-master:9999 ...
+  Waiting for Spark Streaming to connect...
 ```
 
 And Terminal 1 shows the streaming context is running. Now type records in Terminal 2:
@@ -396,9 +396,9 @@ docker exec spark-master rm -rf /tmp/spark-checkpoint-traffic
 
 | Mistake | Fix |
 |---|---|
-| Starting Spark Streaming **before** the producer | Producer is the server; start it first, or use `start-manual-demo.sh` |
+| Starting Spark Streaming **before** the producer | Producer is the TCP server — start it first (automatic: `start-producer.sh`; manual: `start-manual-demo.sh`) |
 | Running MapReduce when the output directory already exists | Script handles this; if manual: `hdfs dfs -rm -r /traffic-data/output/hourly` |
 | Typing records without the correct format | Must be exactly `timestamp,weather,volume` — three comma-separated fields |
-| Spark app shows no output | Wait at least 10 seconds; check producer log for "Spark connected" |
+| Spark app shows no output | Wait at least 10 seconds; check producer for "[CONNECTED] Spark connected" |
 | `spark-image` not found | The image must be built locally; it is not on Docker Hub |
 | Stale Spark PID files after restart | Run `bash scripts/start-spark.sh` — it clears them automatically |

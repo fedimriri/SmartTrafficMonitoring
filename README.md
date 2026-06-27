@@ -557,7 +557,7 @@ Wait until you see the streaming context initialized and it starts listening.
 bash scripts/start-manual-demo.sh
 ```
 
-This opens a `netcat` TCP server on `spark-master:9999`. When Spark connects, type one record per line and press Enter.
+This starts `TrafficDataProducer` in interactive mode inside `spark-master`. The producer opens the TCP server on port 9999, waits for Spark to connect, then forwards each line you type directly to the Spark Streaming pipeline. No `nc` or external tools are required.
 
 **Record format:**
 
