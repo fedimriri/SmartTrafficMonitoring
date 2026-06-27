@@ -24,7 +24,7 @@
 5. [Data Flow](#data-flow)
 6. [Project Structure](#project-structure)
 7. [Dataset](#dataset)
-8. [Prerequisites](#prerequisites)
+8. [Quick Start](#quick-start)
 9. [Docker Deployment](#docker-deployment)
 10. [Running Hadoop MapReduce](#running-hadoop-mapreduce)
 11. [Running Spark Streaming — Automated Mode](#running-spark-streaming--automated-mode)
@@ -34,8 +34,9 @@
 15. [Expected Outputs](#expected-outputs)
 16. [Streaming Pipeline — Technical Deep Dive](#streaming-pipeline--technical-deep-dive)
 17. [Troubleshooting](#troubleshooting)
-18. [Future Improvements](#future-improvements)
-19. [Author](#author)
+18. [Build from Source](#build-from-source)
+19. [Future Improvements](#future-improvements)
+20. [Author](#author)
 
 ---
 
@@ -77,8 +78,9 @@ Both layers run on a six-container Docker cluster (3 Hadoop nodes + 3 Spark node
 | Cluster scheduler | YARN (Yet Another Resource Negotiator) | 3.3.6 |
 | Stream processing | Apache Spark Streaming | 2.4.5 |
 | Containerisation | Docker + Docker Compose | 3.8 |
-| Hadoop Docker image | `liliasfaxi/hadoop-cluster` | latest |
-| Spark Docker image | `spark-image` (local build) | — |
+| Hadoop Docker image | `fedimriri/hadoop-cluster` | latest |
+| Spark Docker image | `fedimriri/spark-image` | latest |
+| Producer Docker image | `fedimriri/traffic-producer` | latest |
 
 ---
 
@@ -214,7 +216,7 @@ SmartTrafficMonitoring/
 │   └── screenshot/                           # Evidence screenshots
 │
 ├── scripts/
-│   ├── connect-networks.sh     # One-time: connect Spark to Hadoop network
+│   ├── connect-networks.sh     # Verify cross-container connectivity
 │   ├── start-spark.sh          # Start Spark Master + Workers
 │   ├── run-mapreduce.sh        # Build + run both MapReduce jobs
 │   ├── start-producer.sh       # Start TCP data producer (automated)
@@ -270,40 +272,37 @@ None,288.28,0.0,0.0,40,Clouds,scattered clouds,2012-10-02 09:00:00,5545
 
 ---
 
-## Prerequisites
+## Quick Start
 
-| Requirement | Notes |
-|---|---|
-| Docker Engine | 20.x or later |
-| Docker Compose | v2 or v1.29+ |
-| Maven | 3.6+ (for building locally) |
-| Java 8 JDK | Required for `mvn package` |
-| `spark-image` Docker image | Must be built locally — not on Docker Hub |
+A completely fresh machine needs only Docker, Docker Compose, Maven, and Java 8 — no local image builds.
 
-> **Note:** The `liliasfaxi/hadoop-cluster` image is pulled automatically from Docker Hub. The `spark-image` must exist locally before running `docker-compose up`.
-
----
-
-## Docker Deployment
-
-### Container Map
-
-| Container | Role | Exposed Ports |
-|---|---|---|
-| `hadoop-master` | NameNode + ResourceManager | 9870 (HDFS UI), 8088 (YARN UI) |
-| `hadoop-worker1` | DataNode + NodeManager | — |
-| `hadoop-worker2` | DataNode + NodeManager | — |
-| `spark-master` | Spark Master + Driver + Producer | 8080 (Spark UI), 7077 (submit), 9999 (socket) |
-| `spark-slave1` | Spark Worker (Executor) | — |
-| `spark-slave2` | Spark Worker (Executor) | — |
-
-### Step 1 — Start the cluster
+### 1 — Clone the repository
 
 ```bash
-docker-compose up -d
+git clone https://github.com/your-org/SmartTrafficMonitoring.git
+cd SmartTrafficMonitoring
 ```
 
-Verify all 6 containers are running:
+### 2 — Pull all images from Docker Hub
+
+```bash
+docker compose pull
+```
+
+This downloads:
+- `fedimriri/hadoop-cluster:latest` — Hadoop 3.3.6 + YARN + HDFS
+- `fedimriri/spark-image:latest` — Apache Spark 2.4.5 standalone cluster
+- `fedimriri/traffic-producer:latest` — (reference image; the JAR runs inside spark-master)
+
+### 3 — Start all containers
+
+```bash
+docker compose up -d
+```
+
+Docker Compose creates the `SmartTrafficMonitoring` network automatically and starts all 6 containers. Wait ~15 seconds for HDFS and YARN daemons to initialize.
+
+Verify all containers are running:
 
 ```bash
 docker ps --format "table {{.Names}}\t{{.Status}}"
@@ -321,22 +320,7 @@ hadoop-worker1  Up X seconds
 hadoop-master   Up X seconds
 ```
 
-### Step 2 — Connect Spark to the Hadoop network (once per machine)
-
-The `docker-compose.yml` places all containers on the same `hadoop` network, so this step is usually automatic. If connectivity checks fail, run it manually:
-
-```bash
-bash scripts/connect-networks.sh
-```
-
-Verify:
-
-```bash
-docker exec spark-master getent hosts hadoop-master
-docker exec spark-slave1 getent hosts hadoop-master
-```
-
-### Step 3 — Verify Hadoop daemons
+### 4 — Verify Hadoop daemons
 
 ```bash
 docker exec hadoop-master jps
@@ -346,26 +330,22 @@ docker exec hadoop-worker1 jps
 # Expected: DataNode, NodeManager
 ```
 
-### Step 4 — Upload the dataset to HDFS
+### 5 — Upload the dataset to HDFS
 
 ```bash
-# Create HDFS directories
 docker exec hadoop-master hdfs dfs -mkdir -p /traffic-data/historical
 
-# Copy CSV into the container
 docker cp dataset/Metro_Interstate_Traffic_Volume.csv \
     hadoop-master:/tmp/Metro_Interstate_Traffic_Volume.csv
 
-# Upload to HDFS
 docker exec hadoop-master hdfs dfs -put \
     /tmp/Metro_Interstate_Traffic_Volume.csv \
     /traffic-data/historical/
 
-# Verify
 docker exec hadoop-master hdfs dfs -ls /traffic-data/historical/
 ```
 
-### Step 5 — Build the project JAR
+### 6 — Build the project JAR
 
 ```bash
 mvn clean package -DskipTests
@@ -373,15 +353,71 @@ mvn clean package -DskipTests
 
 Produces: `target/SmartTrafficMonitoring-1.0-SNAPSHOT.jar`
 
-### Step 6 — Start the Spark cluster
-
-Spark daemons must be started manually after each container restart:
+### 7 — Start the Spark cluster
 
 ```bash
 bash scripts/start-spark.sh
 ```
 
-Verify at http://localhost:8080 — you should see 1 Master and 2 Workers registered.
+Verify at http://localhost:8080 — 1 Master and 2 Workers should be registered.
+
+### 8 — Run Hadoop MapReduce jobs
+
+```bash
+bash scripts/run-mapreduce.sh
+```
+
+Both jobs run on YARN. Results print to the terminal and are stored in HDFS.
+
+### 9 — Run Spark Streaming
+
+Open two terminals:
+
+**Terminal 1 — Submit the streaming job:**
+```bash
+bash scripts/start-streaming.sh
+```
+
+**Terminal 2 — Start the data producer:**
+```bash
+bash scripts/start-producer.sh
+```
+
+Congestion alerts, running averages, and weather aggregations appear in Terminal 1 every 5 seconds.
+
+### 10 — Shut down
+
+```bash
+docker compose down
+```
+
+---
+
+## Docker Deployment
+
+### Container Map
+
+| Container | Role | Exposed Ports |
+|---|---|---|
+| `hadoop-master` | NameNode + ResourceManager | 9870 (HDFS UI), 8088 (YARN UI) |
+| `hadoop-worker1` | DataNode + NodeManager | — |
+| `hadoop-worker2` | DataNode + NodeManager | — |
+| `spark-master` | Spark Master + Driver + Producer | 8080 (Spark UI), 7077 (submit), 9999 (socket) |
+| `spark-slave1` | Spark Worker (Executor) | — |
+| `spark-slave2` | Spark Worker (Executor) | — |
+
+### Docker Hub Images
+
+All images are published under the `fedimriri` namespace:
+
+| Image | Docker Hub | Size |
+|---|---|---|
+| `fedimriri/hadoop-cluster:latest` | Hadoop 3.3.6 + YARN + HDFS + SSH | ~8 GB |
+| `fedimriri/spark-image:latest` | Apache Spark 2.4.5 standalone | ~2.3 GB |
+
+### Network
+
+All containers share a single Docker bridge network named `SmartTrafficMonitoring`, created automatically by `docker compose up`. No manual `docker network create` is needed.
 
 ---
 
@@ -822,7 +858,7 @@ The global average is computed as integer division of cumulative sum by cumulati
 ### Containers not starting
 
 ```bash
-docker-compose down && docker-compose up -d
+docker compose down && docker compose up -d
 ```
 
 ### Hadoop daemons not running
@@ -845,15 +881,6 @@ docker exec spark-slave2  bash -c "rm -f /tmp/spark-*.pid"
 bash scripts/start-spark.sh
 ```
 
-### `spark-image` not found
-
-The Spark image is not on Docker Hub. Build it locally before running `docker-compose up`:
-
-```bash
-# Consult your course materials for the Spark Dockerfile
-docker build -t spark-image:latest /path/to/spark-dockerfile/
-```
-
 ### Streaming app cannot connect to producer
 
 Ensure the producer started first (it's the server). Check port 9999 is free in the container:
@@ -873,15 +900,43 @@ docker exec hadoop-master hdfs dfs -rm -r /traffic-data/output/hourly
 docker exec hadoop-master hdfs dfs -rm -r /traffic-data/output/weather
 ```
 
-### `connect-networks.sh` fails
-
-If the Spark containers are already on the `hadoop` network (they are by default from `docker-compose.yml`), this is safe to ignore. The `|| echo "already connected"` guard handles this.
-
 ### Spark Streaming prints no output
 
 - Confirm the producer is running: `docker exec spark-master tail -f /tmp/producer.log`
 - Confirm the streaming app connected: look for `[PRODUCER] Spark connected from` in the log
 - Wait at least 10 seconds for the first micro-batches to complete
+
+### Clear streaming checkpoint (if Spark refuses to start after crash)
+
+```bash
+docker exec spark-master rm -rf /tmp/spark-checkpoint-traffic
+```
+
+---
+
+## Build from Source
+
+> This section is for developers who want to rebuild the Docker images locally.
+
+### Rebuild the traffic producer image
+
+The `traffic-producer` image is built from the project's own JAR. If you modify the Java source:
+
+```bash
+mvn clean package -DskipTests
+docker build -t fedimriri/traffic-producer:latest .
+docker push fedimriri/traffic-producer:latest
+```
+
+### Re-tag upstream images
+
+If you need to re-publish the Hadoop or Spark base images:
+
+```bash
+docker pull liliasfaxi/hadoop-cluster:latest
+docker tag liliasfaxi/hadoop-cluster:latest fedimriri/hadoop-cluster:latest
+docker push fedimriri/hadoop-cluster:latest
+```
 
 ---
 

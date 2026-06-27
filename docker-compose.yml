@@ -1,23 +1,22 @@
-version: '3.8'
-
 # SmartTrafficMonitoring — Docker Compose
 # Reproduces the 6-container Big Data cluster used in development.
 #
-# Usage:
-#   docker-compose up -d
-#   bash scripts/connect-networks.sh   # (first time only, already handled by networks below)
+# All images are hosted on Docker Hub under the fedimriri namespace.
+# No local image builds are required.
+#
+# Quick start (on any machine):
+#   docker compose pull
+#   docker compose up -d
 #   bash scripts/start-spark.sh        # Start Spark Master + Workers
 #
-# Note: The 'spark-image' must be built locally before use (it is not on Docker Hub).
 # The hadoop-cluster image handles SSH key exchange internally — no manual setup needed.
-#
 # After 'up', run the MapReduce jobs and streaming pipeline as documented in README.md.
 
 services:
 
   # ─── Hadoop Master ─────────────────────────────────────────────────────────
   hadoop-master:
-    image: liliasfaxi/hadoop-cluster:latest
+    image: fedimriri/hadoop-cluster:latest
     container_name: hadoop-master
     hostname: hadoop-master
     stdin_open: true
@@ -53,7 +52,7 @@ services:
 
   # ─── Hadoop Worker 1 ───────────────────────────────────────────────────────
   hadoop-worker1:
-    image: liliasfaxi/hadoop-cluster:latest
+    image: fedimriri/hadoop-cluster:latest
     container_name: hadoop-worker1
     hostname: hadoop-worker1
     stdin_open: true
@@ -72,7 +71,7 @@ services:
 
   # ─── Hadoop Worker 2 ───────────────────────────────────────────────────────
   hadoop-worker2:
-    image: liliasfaxi/hadoop-cluster:latest
+    image: fedimriri/hadoop-cluster:latest
     container_name: hadoop-worker2
     hostname: hadoop-worker2
     stdin_open: true
@@ -92,7 +91,7 @@ services:
 
   # ─── Spark Master ──────────────────────────────────────────────────────────
   spark-master:
-    image: spark-image:latest
+    image: fedimriri/spark-image:latest
     container_name: spark-master
     hostname: spark-master
     stdin_open: true
@@ -110,7 +109,7 @@ services:
 
   # ─── Spark Worker 1 ────────────────────────────────────────────────────────
   spark-slave1:
-    image: spark-image:latest
+    image: fedimriri/spark-image:latest
     container_name: spark-slave1
     hostname: spark-slave1
     stdin_open: true
@@ -123,7 +122,7 @@ services:
 
   # ─── Spark Worker 2 ────────────────────────────────────────────────────────
   spark-slave2:
-    image: spark-image:latest
+    image: fedimriri/spark-image:latest
     container_name: spark-slave2
     hostname: spark-slave2
     stdin_open: true
@@ -135,7 +134,6 @@ services:
       - spark-master
 
 networks:
-    SmartTrafficMonitoring:
-      external: true
-      driver: bridge
-
+  SmartTrafficMonitoring:
+    name: SmartTrafficMonitoring
+    driver: bridge

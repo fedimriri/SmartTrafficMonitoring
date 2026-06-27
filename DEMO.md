@@ -400,5 +400,5 @@ docker exec spark-master rm -rf /tmp/spark-checkpoint-traffic
 | Running MapReduce when the output directory already exists | Script handles this; if manual: `hdfs dfs -rm -r /traffic-data/output/hourly` |
 | Typing records without the correct format | Must be exactly `timestamp,weather,volume` — three comma-separated fields |
 | Spark app shows no output | Wait at least 10 seconds; check producer for "[CONNECTED] Spark connected" |
-| `spark-image` not found | The image must be built locally; it is not on Docker Hub |
+| Images not found locally | Run `docker compose pull` to download all images from Docker Hub |
 | Stale Spark PID files after restart | Run `bash scripts/start-spark.sh` — it clears them automatically |

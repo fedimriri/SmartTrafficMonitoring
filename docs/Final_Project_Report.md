@@ -102,7 +102,7 @@ holiday, temp, rain_1h, snow_1h, clouds_all, weather_main, weather_description, 
 | Cluster Mode | Spark Standalone | 2.4.5 |
 | Build Tool | Apache Maven | 3.x |
 | Deployment | Docker + Docker Compose | 20.x / 3.8 |
-| Container Images | `liliasfaxi/hadoop-cluster`, `spark-image` | custom |
+| Container Images | `fedimriri/hadoop-cluster`, `fedimriri/spark-image` | Docker Hub |
 
 ### Project Structure
 

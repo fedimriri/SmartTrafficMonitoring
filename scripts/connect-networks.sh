@@ -1,21 +1,21 @@
 #!/bin/bash
-# Connect Spark containers to the Hadoop network.
-# Required so Spark can access HDFS and YARN.
-# Run once after containers are first started.
+# Verify that Spark and Hadoop containers can reach each other.
+# All containers share the SmartTrafficMonitoring network (defined in docker-compose.yml),
+# so connectivity is automatic after 'docker compose up -d'.
+# Run this script to confirm DNS resolution is working correctly.
 
 set -e
 
-echo "=== Connecting Spark containers to Hadoop network ==="
-docker network connect hadoop spark-master  || echo "spark-master already connected"
-docker network connect hadoop spark-slave1  || echo "spark-slave1 already connected"
-docker network connect hadoop spark-slave2  || echo "spark-slave2 already connected"
+echo "=== Verifying cross-container connectivity on SmartTrafficMonitoring network ==="
 
-echo ""
-echo "=== Verifying connectivity ==="
 echo "spark-master -> hadoop-master:"
 docker exec spark-master getent hosts hadoop-master
+
 echo "spark-slave1 -> hadoop-master:"
 docker exec spark-slave1 getent hosts hadoop-master
 
+echo "spark-slave2 -> hadoop-master:"
+docker exec spark-slave2 getent hosts hadoop-master
+
 echo ""
-echo "All Spark containers can now reach Hadoop network."
+echo "All Spark containers can reach Hadoop containers. Network is healthy."
